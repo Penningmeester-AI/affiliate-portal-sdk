@@ -34,7 +34,7 @@ class AttributionService {
   static final SdkLogger _log = SdkLogger();
   static Completer<void>? _initCompleter;
 
-  /// Call from the app with the launch URL (e.g. from [Linking.getInitialURL]).
+  /// Call from the app with the launch URL (e.g. from app_links getInitialLink).
   /// Used to extract click_id when native did not provide it (e.g. iOS).
   static void setLaunchUrl(final String? url) {
     _launchUrlOverride = url;
@@ -96,7 +96,16 @@ class AttributionService {
     }
 
     final signals = await _collectSignals(config);
+    final url = signals['click_id_from_url'];
+    final clipboard = signals['click_id_from_clipboard'];
+    final referrer = signals['click_id_from_referrer'];
+    _log.log(
+      'Collected click_id_from_url: ${url ?? "null"}, '
+      'click_id_from_clipboard: ${clipboard ?? "null"}, '
+      'click_id_from_referrer: ${referrer ?? "null"}',
+    );
     try {
+      _log.log('Sending attribution request...');
       final client = AttributionApiClient(config);
       final result = await client.attribute(signals);
       _cachedResult = result;
@@ -105,7 +114,8 @@ class AttributionService {
       }
       _initialized = true;
       _log.log(
-        'Attribution: ${result.attributed ? result.affiliateCode : "not attributed"}',
+        'Attribution result: attributed=${result.attributed}'
+        '${result.affiliateCode != null ? ", affiliateCode=${result.affiliateCode}" : ""}',
       );
     } on AuthenticationException catch (_) {
       _log.log('401 Unauthorized, caching to avoid retries');

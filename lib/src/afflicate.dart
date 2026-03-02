@@ -30,8 +30,8 @@ abstract final class Afflicate {
     return AttributionService.getAttribution();
   }
 
-  /// Pass the app launch URL (e.g. from [Linking.getInitialURL]) so the SDK
-  /// can extract [click_id] for attribution. Call before [init].
+  /// Pass the app launch URL (e.g. from app_links [AppLinks.getInitialLink])
+  /// so the SDK can extract [click_id] for attribution. Call before [init].
   static void setLaunchUrl(final String? url) {
     AttributionService.setLaunchUrl(url);
   }

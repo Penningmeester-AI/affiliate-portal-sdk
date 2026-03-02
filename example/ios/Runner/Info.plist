@@ -45,5 +45,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- URL scheme for attribution testing: afflicateexample://open?click_id=<uuid> -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.affiliate_portal_sdk_example</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>afflicateexample</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

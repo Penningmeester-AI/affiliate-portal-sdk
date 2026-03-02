@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/attribution_api_client.dart';
+import '../exceptions/authentication_exception.dart';
 import '../models/afflicate_config.dart';
 import '../models/attribution_result.dart';
 import '../platform/afflicate_platform_interface.dart';
@@ -10,7 +13,13 @@ import '../utils/attribution_storage.dart';
 import '../utils/sdk_logger.dart';
 import 'signal_collector.dart';
 
-/// Orchestrates init flow: cache check → collect signals → POST → cache on success.
+/// UUID regex for validating click_id before sending to API (safety net).
+final RegExp _uuidRegex = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+
+/// Orchestrates init flow: cache check → collect signals → POST → cache only when attributed.
 class AttributionService {
   AttributionService._();
 
@@ -23,6 +32,7 @@ class AttributionService {
   static String? _launchUrlOverride;
   static AfflicatePlatformInterface _platform = AfflicatePlatformImpl();
   static final SdkLogger _log = SdkLogger();
+  static Completer<void>? _initCompleter;
 
   /// Call from the app with the launch URL (e.g. from [Linking.getInitialURL]).
   /// Used to extract click_id when native did not provide it (e.g. iOS).
@@ -36,6 +46,7 @@ class AttributionService {
     _initialized = false;
     _cachedResult = null;
     _launchUrlOverride = null;
+    _initCompleter = null;
     _log.enabled = false;
     if (platform != null) {
       _platform = platform;
@@ -44,7 +55,8 @@ class AttributionService {
     }
   }
 
-  /// Idempotent init: cache first, then signals + POST if no cache.
+  /// Idempotent init. Single-flight: concurrent calls await the same run.
+  /// Cache: only when attributed=true; 401 cached permanently per spec.
   static Future<void> init(final AfflicateConfig config) async {
     _log.enabled = config.debug;
 
@@ -52,8 +64,29 @@ class AttributionService {
       _log.log('Already initialized, skipping');
       return;
     }
+    if (_initCompleter != null) {
+      await _initCompleter!.future;
+      return;
+    }
+    _initCompleter = Completer<void>();
+    try {
+      await _initOnce(config);
+    } finally {
+      _initCompleter!.complete();
+      _initCompleter = null;
+    }
+  }
 
+  static Future<void> _initOnce(final AfflicateConfig config) async {
     final prefs = await SharedPreferences.getInstance();
+
+    if (load401Cached(prefs)) {
+      _cachedResult = AttributionResult.notAttributed();
+      _initialized = true;
+      _log.log('401 previously cached, skipping API (invalid key)');
+      return;
+    }
+
     final cached = loadAttribution(prefs);
     if (cached != null) {
       _cachedResult = cached;
@@ -67,16 +100,22 @@ class AttributionService {
       final client = AttributionApiClient(config);
       final result = await client.attribute(signals);
       _cachedResult = result;
-      await saveAttribution(prefs, result);
+      if (result.attributed) {
+        await saveAttribution(prefs, result);
+      }
       _initialized = true;
       _log.log(
         'Attribution: ${result.attributed ? result.affiliateCode : "not attributed"}',
       );
+    } on AuthenticationException catch (_) {
+      _log.log('401 Unauthorized, caching to avoid retries');
+      await save401Cached(prefs);
+      _cachedResult = AttributionResult.notAttributed();
+      _initialized = true;
     } on Exception catch (e) {
       _log.log('Attribution failed: $e');
       _cachedResult = AttributionResult.notAttributed();
       _initialized = true;
-      // Do not cache failure; next app open will retry.
     }
   }
 
@@ -87,6 +126,8 @@ class AttributionService {
     return AttributionResult.notAttributed();
   }
 
+  /// Collects signals. GDPR: fingerprint only when [config.consentGiven].
+  /// Deterministic signals (click_id, app_id) always sent.
   static Future<Map<String, Object?>> _collectSignals(
     final AfflicateConfig config,
   ) async {
@@ -99,9 +140,9 @@ class AttributionService {
 
     final signals = <String, Object?>{
       'app_id': config.appId,
-      'click_id_from_url': clickIdFromUrl,
-      'click_id_from_clipboard': clickIdFromClipboard,
-      'click_id_from_referrer': clickIdFromReferrer,
+      'click_id_from_url': _validClickIdOrNull(clickIdFromUrl),
+      'click_id_from_clipboard': _validClickIdOrNull(clickIdFromClipboard),
+      'click_id_from_referrer': _validClickIdOrNull(clickIdFromReferrer),
       'consent_given': config.consentGiven,
       'is_test': kDebugMode,
     };
@@ -116,10 +157,16 @@ class AttributionService {
     return signals;
   }
 
+  static String? _validClickIdOrNull(final String? value) {
+    if (value == null || value.isEmpty) return null;
+    return _uuidRegex.hasMatch(value) ? value : null;
+  }
+
   static String? _parseClickIdFromUrl(final String urlString) {
     try {
       final uri = Uri.parse(urlString);
-      return uri.queryParameters['click_id'];
+      final id = uri.queryParameters['click_id'];
+      return _validClickIdOrNull(id);
     } catch (_) {
       return null;
     }

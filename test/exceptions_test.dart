@@ -35,5 +35,10 @@ void main() {
       const e = InitializationException('i');
       expect(e, isA<AfflicateException>());
     });
+
+    test('ValidationException is AfflicateException', () {
+      const e = ValidationException('v');
+      expect(e, isA<AfflicateException>());
+    });
   });
 }

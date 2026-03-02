@@ -7,6 +7,7 @@ import '../exceptions/authentication_exception.dart';
 import '../exceptions/network_exception.dart';
 import '../exceptions/parse_exception.dart';
 import '../exceptions/timeout_exception.dart';
+import '../exceptions/validation_exception.dart';
 import '../models/afflicate_config.dart';
 import '../models/attribution_result.dart';
 
@@ -18,7 +19,8 @@ class AttributionApiClient {
   final AfflicateConfig _config;
 
   /// POSTs signals to the attribution endpoint. Returns [AttributionResult].
-  /// Throws [NetworkException], [AuthenticationException], [TimeoutException].
+  /// Throws [ValidationException] on 400, [AuthenticationException] on 401,
+  /// [NetworkException] on 5xx/other, [TimeoutException] on timeout.
   Future<AttributionResult> attribute(
     final Map<String, Object?> signals,
   ) async {
@@ -45,9 +47,19 @@ class AttributionApiClient {
       throw NetworkException('Request failed: $e', e);
     }
 
+    if (_config.debug) {
+      // ignore: avoid_print
+      print('[Afflicate] API response ${response.statusCode}: ${response.body}');
+    }
     if (response.statusCode == 401) {
       throw AuthenticationException(
         'Unauthorized (401). Check public key.',
+        null,
+      );
+    }
+    if (response.statusCode == 400) {
+      throw ValidationException(
+        'Bad request (400). Check request payload.',
         null,
       );
     }
@@ -69,7 +81,18 @@ class AttributionApiClient {
       );
     }
     final map = decoded;
-    final attributed = map['attributed'] == true;
+    if (!map.containsKey('attributed')) {
+      throw const AfflicateParseException(
+        'Invalid attribution response: missing required "attributed" key',
+      );
+    }
+    final rawAttributed = map['attributed'];
+    if (rawAttributed is! bool) {
+      throw const AfflicateParseException(
+        'Invalid attribution response: "attributed" must be a boolean',
+      );
+    }
+    final attributed = rawAttributed;
     final code = map['affiliate_code'];
     final codeId = map['affiliate_code_id'];
     final method = map['match_method'];

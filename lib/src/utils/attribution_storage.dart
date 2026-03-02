@@ -8,6 +8,9 @@ const String _keyAffiliateCodeId = 'afflicate_affiliate_code_id';
 const String _keyMatchMethod = 'afflicate_match_method';
 const String _keyMatchConfidence = 'afflicate_match_confidence';
 
+/// Key for permanently caching 401 invalid key (per spec: avoid infinite retries).
+const String key401Cached = 'afflicate_401_cached';
+
 /// Persists [AttributionResult] using SharedPreferences. No JSON; key-value only.
 Future<void> saveAttribution(
   final SharedPreferences prefs,
@@ -18,6 +21,21 @@ Future<void> saveAttribution(
   await prefs.setInt(_keyAffiliateCodeId, result.affiliateCodeId ?? -1);
   await prefs.setString(_keyMatchMethod, result.matchMethod ?? '');
   await prefs.setInt(_keyMatchConfidence, result.matchConfidence ?? -1);
+}
+
+/// Returns true if a 401 was previously cached (invalid key); do not retry API.
+bool load401Cached(final SharedPreferences prefs) {
+  return prefs.getBool(key401Cached) == true;
+}
+
+/// Saves that 401 was received; cache permanently per spec.
+Future<void> save401Cached(final SharedPreferences prefs) async {
+  await prefs.setBool(key401Cached, true);
+}
+
+/// Clears 401 cached flag (e.g. for tests).
+Future<void> clear401Cached(final SharedPreferences prefs) async {
+  await prefs.remove(key401Cached);
 }
 
 /// Loads attribution from preferences. Returns null if never saved.

@@ -1,0 +1,57 @@
+---
+description: Attribution SDK (Afflicate) build rules — file structure, API, typing, deps, errors, logging, init, tests, docs
+globs: lib/**/*.dart
+alwaysApply: true
+---
+
+# Attribution SDK Build Rules
+
+## 1. File Structure
+- Hard max **400 lines per file**. Split by responsibility if exceeded.
+- No file may mix: models + services, API + business logic, or public exports + implementation.
+- **lib/afflicate_sdk.dart** — ONLY public exports. Everything else under **lib/src/**:
+  - **src/api/** — HTTP/JSON only
+  - **src/services/** — business logic, attribution flow
+  - **src/models/** — data classes only
+  - **src/exceptions/** — exception types
+  - **src/utils/** — logger, helpers
+- Only `lib/afflicate_sdk.dart` exposes the public API.
+
+## 2. Public API
+- Single **static** class for simplicity: `Afflicate.init(config)`, `Afflicate.getAttribution()`.
+- All public methods: return typed `Future<T>` or typed value; have **DartDoc** comments.
+- No internal classes, repositories, or services exposed publicly.
+
+## 3. Typing
+- No `dynamic`. No untyped `Map`.
+- JSON parsing **only** inside `api/` layer.
+- All models: explicit fields, `fromJson`/`toJson`, extend **Equatable**.
+
+## 4. Dependencies (only these)
+- `http` — Attribution API
+- `shared_preferences` — persist attribution
+- `package_info_plus` — app version
+- `equatable` — model equality
+No other packages without explicit justification.
+
+## 5. Error Handling
+- Base **AfflicateException** with subtypes: **NetworkException**, **AuthenticationException** (401), **TimeoutException**.
+- Never throw generic `Exception`. Never swallow errors. Never use `null` for failure — use typed exceptions.
+
+## 6. Logging
+- No `print()`. Logging off by default; enabled via `debug: true` in config. Use a simple internal logger (no external logging package).
+
+## 7. Initialization
+- `init()` must be **idempotent** — safe to call multiple times; second call returns cached result without re-running attribution. Thread-safe.
+
+## 8. Async
+- All I/O async. No blocking ops. No expensive work in constructors.
+
+## 9. Tests
+- **80%+** coverage. Unit tests for: API layer, attribution flow, error handling, cache behavior. No real network — use mocked HTTP. Test failure scenarios thoroughly.
+
+## 10. Documentation
+- Full DartDoc on all public methods. README: installation, init example, error handling. SemVer.
+
+## 11. Lint
+- Use `flutter_lints`. No unused imports, no dead code, no TODOs in production code.

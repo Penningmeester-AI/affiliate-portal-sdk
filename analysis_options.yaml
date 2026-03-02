@@ -1,0 +1,51 @@
+# Attribution SDK — strict linting to enforce .cursor/rules/attribution-sdk.mdc
+# See: https://dart.dev/tools/linter-rules
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Treat these as errors so CI and IDE block on them
+    avoid_dynamic_calls: error
+    avoid_print: error
+    empty_catches: error
+    todo: warning
+    deprecated_member_use: warning
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+
+linter:
+  rules:
+    # ----- Typing (no dynamic, explicit where it helps) -----
+    - avoid_dynamic_calls
+    - prefer_typing_uninitialized_variables
+    # ----- No print; no silent failures -----
+    - avoid_print
+    - empty_catches
+    # ----- No dead / redundant code -----
+    - dead_code
+    - unnecessary_lambdas
+    - unnecessary_null_checks
+    - unnecessary_null_in_if_null_operators
+    - unnecessary_nullable_for_final_variable_declarations
+    - unnecessary_string_escapes
+    - unnecessary_string_interpolations
+    - unreachable_from_main
+    # ----- No TODOs in production (use warning above; format if you must) -----
+    - flutter_style_todos
+    # ----- Imports and exports -----
+    - unused_import
+    - unnecessary_import
+    # ----- API / design -----
+    - deprecated_member_use
+    - deprecated_member_use_from_same_package
+    - invalid_annotation_target
+    # ----- Consistency -----
+    - prefer_final_in_for_each
+    - prefer_final_locals
+    - prefer_final_parameters
+    - use_super_parameters
+
+# Note: Max 400 lines per file is enforced by .cursor/rules (no built-in lint).
+# JSON only in api/, no untyped Map in models — enforced by code review / rules.

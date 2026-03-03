@@ -2,6 +2,8 @@ package com.afflicate.sdk
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -12,6 +14,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.net.URLDecoder
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 
 class AfflicatePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -60,6 +63,12 @@ class AfflicatePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             result.success(null)
             return
         }
+        val replied = AtomicBoolean(false)
+        fun replyOnce(value: String?) {
+            if (replied.compareAndSet(false, true)) {
+                Handler(Looper.getMainLooper()).post { result.success(value) }
+            }
+        }
         val client = InstallReferrerClient.newBuilder(context).build()
         client.startConnection(object : InstallReferrerStateListener {
             override fun onInstallReferrerSetupFinished(responseCode: Int) {
@@ -74,22 +83,23 @@ class AfflicatePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                                 Pattern.CASE_INSENSITIVE
                             )
                             val matcher = pattern.matcher(decoded)
-                            result.success(if (matcher.find()) matcher.group(1) else null)
+                            val value = if (matcher.find()) matcher.group(1) else null
+                            replyOnce(value)
                         } catch (e: Exception) {
-                            result.success(null)
+                            replyOnce(null)
                         } finally {
                             client.endConnection()
                         }
                     }
                     else -> {
-                        result.success(null)
+                        replyOnce(null)
                         client.endConnection()
                     }
                 }
             }
 
             override fun onInstallReferrerServiceDisconnected() {
-                result.success(null)
+                replyOnce(null)
             }
         })
     }

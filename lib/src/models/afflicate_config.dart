@@ -21,7 +21,7 @@ class AfflicateConfig {
     final http.Client? httpClient,
   }) : _httpClient = httpClient;
 
-  static const String _defaultBaseUrl = 'https://track.afflicate.com';
+  static const String _defaultBaseUrl = 'https://track.affiliate-portal.app';
 
   /// Public key identifying the company (e.g. "pk_live_xxx").
   final String publicKey;

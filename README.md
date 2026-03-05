@@ -73,7 +73,7 @@ That’s it. The SDK runs attribution once on first launch and caches the result
 | **appId** | Yes | Your app’s bundle ID (iOS) or package name (Android), e.g. `com.company.app`. |
 | **consentGiven** | Yes | Required for GDPR. When `true`, fingerprint signals are sent. When `false`, only deterministic signals (click_id from URL, clipboard, referrer) are sent. |
 | **debug** | No | When `true`, enables console logging and sets `is_test: true` in API requests. Default: `false`. |
-| **baseUrl** | No | Attribution API base URL. Defaults to `https://track.afflicate.com`. |
+| **baseUrl** | No | Attribution API base URL. Defaults to `https://track.affiliate-portal.app`. |
 | **timeout** | No | Request timeout. Default: 10 seconds. |
 
 ### What happens when `consentGiven = false`?
